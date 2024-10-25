@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PDF Annotator</title>
+    <script src="pdf.min.js"></script>
+    <script src="fabric.min.js"></script>
+    <link rel="stylesheet" href="css/font-awesome.min.css">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+        #container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+        #toolbox {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 20px;
+            background-color: #f0f0f0;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+        #pdf-container {
+            position: relative;
+            flex-grow: 1;
+            overflow: auto;
+            background-color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+        .canvas-wrapper {
+            position: relative;
+            margin: 20px 0;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
+        #pdf-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .canvas-container {
+            position: relative !important;
+        }
+        .tool-button {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 8px;
+            background-color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .tool-button:hover {
+            background-color: #e0e0e0;
+        }
+        .tool-button i {
+            font-size: 1.2em;
+        }
+        .active-tool {
+            background-color: #add8e6;
+        }
+        .color-picker {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .page-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: auto;
+        }
+        #page-num {
+            font-family: Arial, sans-serif;
+            font-size: 0.9em;
+        }
+        .file-upload {
+            display: none;
+        }
+        .file-upload-label {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background-color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        .file-upload-label:hover {
+            background-color: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="toolbox">
+            <label class="file-upload-label" for="pdf-upload">
+                <i class="fas fa-file-pdf"></i>
+            </label>
+            <input type="file" id="pdf-upload" accept=".pdf" class="file-upload"/>
+            
+            <button class="tool-button" id="pen-tool" title="Pen">
+                <i class="fas fa-pen"></i>
+            </button>
+            <button class="tool-button" id="highlighter-tool" title="Highlighter">
+                <i class="fas fa-highlighter"></i>
+            </button>
+            <button class="tool-button" id="eraser-tool" title="Eraser">
+                <i class="fas fa-eraser"></i>
+            </button>
+            <button class="tool-button" id="text-tool" title="Text">
+                <i class="fas fa-font"></i>
+            </button>
+            <input type="color" id="color-picker" class="color-picker" value="#000000" title="Color"/>
+            <button class="tool-button" id="undo" title="Undo">
+                <i class="fas fa-undo"></i>
+            </button>
+            <button class="tool-button" id="clear" title="Clear All">
+                <i class="fas fa-trash"></i>
+            </button>
+            
+            <div class="page-controls">
+                <button class="tool-button" id="prev-page">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span id="page-num"></span>
+                <button class="tool-button" id="next-page">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+        <div id="pdf-container">
+            <div class="canvas-wrapper">
+                <canvas id="pdf-canvas"></canvas>
+                <canvas id="drawing-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
+
+        let pdfDoc = null;
+        let pageNum = 1;
+        let canvas = new fabric.Canvas('drawing-canvas', {
+            isDrawingMode: true,
+            selection: false
+        });
+        let currentTool = 'pen';
+        let drawingHistory = [];
+        let isDrawing = false;
+        let lastColor = '#000000';
+        
+        function updateToolButtons() {
+            const tools = ['pen', 'highlighter', 'eraser', 'text'];
+            tools.forEach(tool => {
+                const button = document.getElementById(`${tool}-tool`);
+                if (currentTool === tool) {
+                    button.classList.add('active-tool');
+                } else {
+                    button.classList.remove('active-tool');
+                }
+            });
+        }
+
+        document.getElementById('pdf-upload').addEventListener('change', function(e) {
+            let file = e.target.files[0];
+            let fileReader = new FileReader();
+            
+            fileReader.onload = function() {
+                let typedarray = new Uint8Array(this.result);
+                loadPDF(typedarray);
+            };
+            
+            fileReader.readAsArrayBuffer(file);
+        });
+
+        function loadPDF(data) {
+            pdfjsLib.getDocument({data: data}).promise.then(function(pdf) {
+                pdfDoc = pdf;
+                document.getElementById('page-num').textContent = 
+                    `${pageNum} / ${pdf.numPages}`;
+                renderPage(pageNum);
+            });
+        }
+
+        function renderPage(num) {
+            pdfDoc.getPage(num).then(function(page) {
+                let viewport = page.getViewport({scale: 1.5});
+                let pdfCanvas = document.getElementById('pdf-canvas');
+                let wrapper = document.querySelector('.canvas-wrapper');
+                
+                pdfCanvas.height = viewport.height;
+                pdfCanvas.width = viewport.width;
+                wrapper.style.width = viewport.width + 'px';
+                wrapper.style.height = viewport.height + 'px';
+                
+                canvas.setHeight(viewport.height);
+                canvas.setWidth(viewport.width);
+
+                page.render({
+                    canvasContext: pdfCanvas.getContext('2d'),
+                    viewport: viewport
+                });
+            });
+        }
+
+        canvas.on('mouse:down', function() {
+            if (canvas.isDrawingMode) {
+                isDrawing = true;
+            }
+        });
+
+        canvas.on('mouse:up', function() {
+            if (isDrawing) {
+                drawingHistory.push(JSON.stringify(canvas));
+                isDrawing = false;
+            }
+        });
+
+        document.getElementById('undo').addEventListener('click', function() {
+            if (drawingHistory.length > 0) {
+                canvas.clear();
+                if (drawingHistory.length > 1) {
+                    canvas.loadFromJSON(drawingHistory[drawingHistory.length - 2], canvas.renderAll.bind(canvas));
+                }
+                drawingHistory.pop();
+            }
+        });
+
+        document.getElementById('pen-tool').addEventListener('click', function() {
+            currentTool = 'pen';
+            canvas.isDrawingMode = true;
+            canvas.freeDrawingBrush.width = 2;
+            canvas.freeDrawingBrush.color = lastColor;
+            updateToolButtons();
+        });
+
+        document.getElementById('highlighter-tool').addEventListener('click', function() {
+            currentTool = 'highlighter';
+            canvas.isDrawingMode = true;
+            canvas.freeDrawingBrush.width = 20;
+            canvas.freeDrawingBrush.color = lastColor + '40';
+            updateToolButtons();
+        });
+
+        document.getElementById('eraser-tool').addEventListener('click', function() {
+            currentTool = 'eraser';
+            canvas.isDrawingMode = true;
+            lastColor = canvas.freeDrawingBrush.color;
+            canvas.freeDrawingBrush.color = '#ffffff';
+            canvas.freeDrawingBrush.width = 20;
+            updateToolButtons();
+        });
+
+        document.getElementById('text-tool').addEventListener('click', function() {
+            currentTool = 'text';
+            canvas.isDrawingMode = false;
+            let text = new fabric.IText('Type here', {
+                left: 100,
+                top: 100,
+                fontFamily: 'Arial',
+                fill: lastColor
+            });
+            canvas.add(text);
+            canvas.setActiveObject(text);
+            drawingHistory.push(JSON.stringify(canvas));
+            updateToolButtons();
+        });
+
+        document.getElementById('color-picker').addEventListener('input', function(e) {
+            let color = e.target.value;
+            lastColor = color;
+            if (currentTool === 'highlighter') {
+                color += '40';
+            } else if (currentTool === 'eraser') {
+                color = '#ffffff';
+            }
+            canvas.freeDrawingBrush.color = color;
+        });
+
+        document.getElementById('clear').addEventListener('click', function() {
+            canvas.clear();
+            drawingHistory = [];
+        });
+
+        document.getElementById('prev-page').addEventListener('click', function() {
+            if (pageNum <= 1) return;
+            pageNum--;
+            renderPage(pageNum);
+            document.getElementById('page-num').textContent = 
+                `${pageNum} / ${pdfDoc.numPages}`;
+        });
+
+        document.getElementById('next-page').addEventListener('click', function() {
+            if (pageNum >= pdfDoc.numPages) return;
+            pageNum++;
+            renderPage(pageNum);
+            document.getElementById('page-num').textContent = 
+                `${pageNum} / ${pdfDoc.numPages}`;
+        });
+
+        updateToolButtons();
+    </script>
+</body>
+</html>
