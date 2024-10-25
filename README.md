@@ -37,6 +37,7 @@ Ensure you have the following files:
 1. Clone the repository:
 ```bash
 git clone https://github.com/ayyoubzadeh/pdf-presenter.git
+```
 
 2. Set up the project structure:
 
@@ -81,11 +82,17 @@ Contributions are welcome! Here's how you can help:
 
 1.Fork the repository
 2.Create a feature branch:
-    git checkout -b feature/YourFeature
+```bash
+git checkout -b feature/YourFeature
+```
 3.Commit your changes:
-    git commit -m 'Add some feature'
+```bash
+git commit -m 'Add some feature'
+```
 4.Push to the branch:
-    git push origin feature/YourFeature
+```bash
+git push origin feature/YourFeature
+```
 5.Open a pull request
 
 📝 License
