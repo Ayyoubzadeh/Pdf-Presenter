@@ -2,8 +2,6 @@
 
 A powerful web-based PDF viewer and annotation tool that enables users to view, annotate, and interact with PDF documents directly in their browser. Perfect for presentations, document reviews, and collaborative markup.
 
-![PDF Presenter and Annotator](screenshots/demo.png)
-
 ## 🌟 Features
 
 ### Document Handling
