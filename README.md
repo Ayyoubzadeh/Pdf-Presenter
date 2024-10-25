@@ -1,6 +1,6 @@
 # PDF Presenter and Annotator
 
-A powerful web-based PDF viewer and annotation tool that enables users to view, annotate, and interact with PDF documents directly in their browser. Perfect for presentations, document reviews, and collaborative markup.
+A powerful web-based PDF presenter and annotation tool that enables users to present, annotate, and interact with PDF documents directly in their browser. Perfect for presentations, document reviews, and collaborative markup.
 
 ## 🌟 Features
 
@@ -38,22 +38,6 @@ Ensure you have the following files:
 ```bash
 git clone https://github.com/ayyoubzadeh/pdf-presenter.git
 ```
-
-2. Set up the project structure:
-```bash
-pdf-presenter/
-├── index.html
-├── css/
-│   └── font-awesome.min.css
-└── js/
-    ├── pdf.min.js
-    ├── pdf.worker.min.js
-    └── fabric.min.js
-```
-3.Add the required dependencies:
-    Download PDF.js
-    Download Fabric.js
-    Download Font Awesome
 
 Usage
 1.Open index.html in a web browser
