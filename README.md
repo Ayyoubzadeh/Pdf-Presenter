@@ -40,7 +40,7 @@ git clone https://github.com/ayyoubzadeh/pdf-presenter.git
 ```
 
 2. Set up the project structure:
-
+```bash
 pdf-presenter/
 ├── index.html
 ├── css/
@@ -49,7 +49,7 @@ pdf-presenter/
     ├── pdf.min.js
     ├── pdf.worker.min.js
     └── fabric.min.js
-
+```
 3.Add the required dependencies:
     Download PDF.js
     Download Fabric.js
